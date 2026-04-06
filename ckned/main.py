@@ -5,6 +5,7 @@ from ollama_client import analyze_with_ollama
 from gemini_client import generate_ciso_report
 import json
 import json_repair
+import httpx
 
 app = FastAPI(title="Project Aegis API")
 
@@ -25,7 +26,16 @@ app.add_middleware(
 
 @app.get("/health")
 async def health():
-    return {"status": "online", "project": "Aegis"}
+    ollama_status = "offline"
+    try:
+        async with httpx.AsyncClient(timeout=1.0) as client:
+            res = await client.get("http://localhost:11434/")
+            if res.status_code == 200:
+                ollama_status = "online"
+    except Exception:
+        pass
+        
+    return {"status": "online", "project": "Aegis", "ollama_status": ollama_status}
 
 @app.post("/simulate-attack")
 async def simulate_attack():

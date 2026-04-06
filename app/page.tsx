@@ -84,6 +84,7 @@ export default function Home() {
   const [hasMounted, setHasMounted] = useState(false);
   const [errorDismissed, setErrorDismissed] = useState(false);
   const [logs, setLogs] = useState<LogLine[]>([]);
+  const [ollamaOnline, setOllamaOnline] = useState(true);
 
   const logViewportRef = useRef<HTMLDivElement | null>(null);
   const copyTimerRef = useRef<number | null>(null);
@@ -113,6 +114,8 @@ export default function Home() {
       try {
         const res = await fetch("/api/health", { cache: "no-store" });
         if (res.ok) {
+          const data = await res.json();
+          setOllamaOnline(data.ollama_status !== "offline");
           clearError();
           return;
         }
@@ -360,6 +363,20 @@ export default function Home() {
           </section>
 
           <section className="lg:col-span-3">
+            {!ollamaOnline ? (
+              <div className="mb-3 flex flex-col gap-2 rounded-md border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-200">
+                <div className="flex items-center gap-2 font-semibold">
+                  <AlertTriangle className="size-4 text-amber-300" />
+                  <span>Ollama Engine Offline</span>
+                </div>
+                <div className="text-xs text-amber-200/80">
+                  <p className="mb-2">Aegis requires a local instance of Ollama running the Qwen model for offline AI threat analysis. Without it, the agent will rely on static fallback mitigations.</p>
+                  <p>To set it up, please install Ollama from <a href="https://ollama.com/download" target="_blank" rel="noreferrer" className="font-semibold underline hover:text-amber-100">ollama.com</a> and run: 
+                    <code className="ml-1.5 rounded bg-black/40 px-1.5 py-0.5 font-mono text-[11px] text-amber-300 border border-amber-500/20">ollama run qwen2.5:3b</code>
+                  </p>
+                </div>
+              </div>
+            ) : null}
             {error && !errorDismissed ? (
               <div className="mb-3 flex items-center justify-between rounded-md border border-red-500/30 bg-red-500/10 px-3 py-2 text-xs text-red-200">
                 <div className="flex items-center gap-2">
