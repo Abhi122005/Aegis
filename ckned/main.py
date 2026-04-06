@@ -4,6 +4,7 @@ from log_processor import filter_suspicious_lines
 from ollama_client import analyze_with_ollama
 from gemini_client import generate_ciso_report
 import json
+import json_repair
 
 app = FastAPI(title="Project Aegis API")
 
@@ -43,7 +44,11 @@ async def simulate_attack():
     # Step 3: Safely parse Ollama JSON response
     try:
         clean = ollama_raw.strip().removeprefix("```json").removesuffix("```").strip()
-        ollama_data = json.loads(clean)
+        # Use json_repair to dynamically fix any missing brackets, commas, or unescaped characters
+        ollama_data = json_repair.loads(clean)
+        if not isinstance(ollama_data, dict):
+             raise ValueError("json-repair failed to extract a valid JSON object.")
+
     except Exception:
         # Fallback: use our own classifier if Ollama returns bad JSON
         ollama_data = {

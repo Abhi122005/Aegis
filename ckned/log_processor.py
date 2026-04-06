@@ -1,6 +1,15 @@
 import re
 from collections import defaultdict
 
+try:
+    from transformers import pipeline
+    print("Initializing micro-model for log triage...")
+    # Load lightweight model for anomaly detection. This prevents false positives.
+    triage_classifier = pipeline("text-classification", model="ProtectAI/deberta-v3-base-prompt-injection")
+except ImportError:
+    print("Warning: transformers library not found. Falling back to simple keyword matching.")
+    triage_classifier = None
+
 ATTACK_KEYWORDS = {
     "brute_force":   ["failed", "failed auth", "authentication failure",
                       "invalid user", "invalid password", "res=failed",
@@ -61,8 +70,24 @@ def filter_suspicious_lines(log_path: str = "access.log") -> dict:
         with open(log_path, "r", encoding="utf-8", errors="ignore") as f:
             for line in f:
                 total_lines += 1
-                if any(kw in line.lower() for kw in ALL_KEYWORDS):
-                    suspicious.append(line.strip())
+                line_str = line.strip()
+                # 1. Fast Triage (Keywords)
+                if any(kw in line_str.lower() for kw in ALL_KEYWORDS):
+                    suspicious_flag = True
+                    
+                    # 2. Smart Triage (Micro-Model)
+                    if triage_classifier:
+                        try:
+                            # Max 512 chars to avoid model limits
+                            pred = triage_classifier(line_str[:512])[0]
+                            # If the model is very confident it is SAFE, drop it (fixes false positives)
+                            if pred['label'] == 'SAFE' and pred['score'] > 0.80:
+                                suspicious_flag = False
+                        except Exception:
+                            pass # On error, fallback to assuming it's suspicious
+                            
+                    if suspicious_flag:
+                        suspicious.append(line_str)
 
     except FileNotFoundError:
         suspicious = [
